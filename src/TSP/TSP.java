@@ -19,12 +19,17 @@ public class TSP {
 		
 		int startFolder = 1;
 		int startInstance = 1;
-		int endFolder = 17;
+		int endFolder = 12;
 		int endInstance = 11;
 
+		outer:
 		for(int folder = startFolder; folder < endFolder; folder++) {
 			for(int instance = startInstance; instance < endInstance; instance++) {
 
+				if(folder == 11 && instance == 10) {
+					break outer;
+				}
+				
 				int numCities;
 				ArrayList<City> cities = new ArrayList<City>();
 				SearchNode result = null;
@@ -81,12 +86,12 @@ public class TSP {
 			}
 		}
 		
+		System.out.println("Plot data");
 		while(!plot_x.isEmpty()) {
 			Integer plotNumCities = plot_x.first();
 			plot_x.remove(plotNumCities);
 			double avg = plot_y_sum.get(plotNumCities) / (double)plot_y_num.get(plotNumCities);
-			System.out.println("Num of cities: " + plotNumCities);
-			System.out.println("Average number of search nodes: " + avg);
+			System.out.println(plotNumCities + " " + avg);
 
 		}
 		
@@ -179,6 +184,10 @@ public class TSP {
 	//which generates the min span tree
 	public static double getHeuristic(ArrayList<City> open_cities) {
 
+		//for problem 1d.
+		if(true)
+			return 0;
+		
 		ArrayList<ArrayList<City>> forest = new ArrayList<ArrayList<City>>(); //keep track of disjointed nodes
 		ArrayList<Edge> MST = new ArrayList<Edge>();
 
