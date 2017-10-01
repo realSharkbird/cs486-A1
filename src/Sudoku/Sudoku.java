@@ -12,9 +12,9 @@ public class Sudoku {
 
 	public static void main(String[] args) throws IOException {
 
-		TreeSet<Integer> x = new TreeSet<Integer>(); //keeps all the num of initial values in sorted order
-		HashMap<Integer, Integer> sum = new HashMap<Integer, Integer>(); //keeps the overall sum 
-		HashMap<Integer, Integer> num = new HashMap<Integer, Integer>(); //keeps the number of times that num of init values occurred
+		TreeSet<Integer> plot_x = new TreeSet<Integer>(); //keeps all the num of initial values in sorted order
+		HashMap<Integer, Integer> plot_y_sum = new HashMap<Integer, Integer>(); //keeps the overall sum 
+		HashMap<Integer, Integer> plot_y_num = new HashMap<Integer, Integer>(); //keeps the number of times that num of init values occurred
 
 		int startFolder = 1;
 		int startInstance = 1;
@@ -49,7 +49,7 @@ public class Sudoku {
 					}
 				}
 				
-				x.add(numInitial);
+				plot_x.add(numInitial);
 				
 				//print grid here
 				/*System.out.println("Num of initial values: " + numInitial);
@@ -74,13 +74,13 @@ public class Sudoku {
 					System.out.println("");
 				}*/
 				
-				Integer currentSum, currentNum = num.get(numInitial);
-				if((currentSum = sum.get(numInitial)) == null) {
+				Integer currentSum, currentNum = plot_y_num.get(numInitial);
+				if((currentSum = plot_y_sum.get(numInitial)) == null) {
 					currentSum = 0;
 					currentNum = 0;
 				}
-				sum.put(numInitial, currentSum + a.var_assign);
-				num.put(numInitial, currentNum + 1);
+				plot_y_sum.put(numInitial, currentSum + a.var_assign);
+				plot_y_num.put(numInitial, currentNum + 1);
 				
 				System.out.println("variable assignments: " + a.var_assign);
 				System.out.println("");
@@ -88,10 +88,10 @@ public class Sudoku {
 			}
 		}
 		
-		while(!x.isEmpty()) {
-			Integer numVarAssign = x.first();
-			x.remove(numVarAssign);
-			double avg = sum.get(numVarAssign) / (double)num.get(numVarAssign);
+		while(!plot_x.isEmpty()) {
+			Integer numVarAssign = plot_x.first();
+			plot_x.remove(numVarAssign);
+			double avg = plot_y_sum.get(numVarAssign) / (double)plot_y_num.get(numVarAssign);
 			System.out.println("Num of initial values: " + numVarAssign);
 			System.out.println("Average number of var assignments: " + avg);
 

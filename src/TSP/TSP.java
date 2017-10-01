@@ -5,12 +5,18 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.TreeSet;
 
 public class TSP {
 
 	public static void main(String[] args) throws NumberFormatException, IOException{
 
+		//statistics for plotting
+		TreeSet<Integer> plot_x = new TreeSet<Integer>(); 
+		HashMap<Integer, Integer> plot_y_sum = new HashMap<Integer, Integer>(); 
+		HashMap<Integer, Integer> plot_y_num = new HashMap<Integer, Integer>(); 
+		
 		int startFolder = 1;
 		int startInstance = 1;
 		int endFolder = 17;
@@ -37,37 +43,61 @@ public class TSP {
 				}
 				reader.close();
 
-				System.out.println("CITIES: ");
-				for(int i = 0; i < cities.size(); i++) {
-					System.out.print(cities.get(i).getLetter() + " ");
-				}
-				System.out.println();
+				plot_x.add(numCities);
+				System.out.println("Num cities: " + numCities);
 
+				SearchNodeTracker snt = new SearchNodeTracker();
+				
 				//do A* search here
-				if((result = SolveTSP(cities)) == null) {
+				if((result = SolveTSP(cities, snt)) == null) {
 					System.out.println("error");
 				}else {
 					//print results here
-					System.out.println();
 
 					System.out.println("SOLUTION: ");
 					SearchNode resultBackup = result;
 					while(result != null) {
 						System.out.print(result.city.getLetter() + " ");
+						if(result.cameFrom != null) {
+							//System.out.println("Edge cost: " + getCost(result.city, result.cameFrom.city));
+						}
 						result = result.cameFrom;
 					}
 					System.out.println();
 					System.out.println("Total Distance: " + resultBackup.gScore);
 
 				}
+				
+				Integer currentSum, currentNum = plot_y_num.get(numCities);
+				if((currentSum = plot_y_sum.get(numCities)) == null) {
+					currentSum = 0;
+					currentNum = 0;
+				}
+				plot_y_sum.put(numCities, currentSum + snt.searchNodes);
+				plot_y_num.put(numCities, currentNum + 1);
+				
+				System.out.println("Search Nodes: " + snt.searchNodes);
+				System.out.println();
 			}
 		}
+		
+		while(!plot_x.isEmpty()) {
+			Integer plotNumCities = plot_x.first();
+			plot_x.remove(plotNumCities);
+			double avg = plot_y_sum.get(plotNumCities) / (double)plot_y_num.get(plotNumCities);
+			System.out.println("Num of cities: " + plotNumCities);
+			System.out.println("Average number of search nodes: " + avg);
+
+		}
+		
 	}
 
 	//get minimum salesman path
 	//return false if no path is found
-	public static SearchNode SolveTSP(ArrayList<City> cities){
+	public static SearchNode SolveTSP(ArrayList<City> cities, SearchNodeTracker snt){
 
+		int searchNodes = 0;
+		
 		City start = cities.get(0);
 
 		//represents all the current paths being visited in the search tree
@@ -85,9 +115,11 @@ public class TSP {
 
 		});
 
+		searchNodes++;
+		
 		SearchNode searchNode = new SearchNode(start, cities);
 		searchNode.gScore = 0;
-		searchNode.fScore = getHeuristic(searchNode.open_cities);
+		searchNode.fScore = getHeuristic(cities);
 		open.add(searchNode);
 
 		while(!open.isEmpty()){
@@ -100,12 +132,16 @@ public class TSP {
 
 			if(node.visited.size() == cities.size()) {
 
+				if(snt != null)
+					snt.searchNodes = searchNodes;
+				
 				return node;
 
 			}
 
 			for(City neighbour: node.open_cities) {
 
+				searchNodes++;
 				SearchNode child = new SearchNode(neighbour, node);
 
 				//this is here so we end where we started
@@ -117,16 +153,28 @@ public class TSP {
 
 				child.cameFrom = node;
 				child.gScore = tentative_gScore;
-				child.fScore = child.gScore + getHeuristic(child.open_cities);
+				
+				if(!(child.city.equals(start) && child.visited.size() == cities.size() - 1)) {
+					//we have to include the final city in the heuristic
+					//so temporarily add it
+					child.open_cities.add(start);
+					child.fScore = child.gScore + getHeuristic(child.open_cities);
+					child.open_cities.remove(start);
+				}else {
+					child.fScore = child.gScore + getHeuristic(child.open_cities);
+				}
 
 				open.add(child);
 			}
 
 		}
 
+		if(snt != null)
+			snt.searchNodes = searchNodes;
+		
 		return null;
 	}
-
+	
 	//heuristic function
 	//which generates the min span tree
 	public static double getHeuristic(ArrayList<City> open_cities) {
@@ -240,7 +288,6 @@ public class TSP {
 		public double fScore = Double.POSITIVE_INFINITY, gScore = Double.POSITIVE_INFINITY; //f and g score of this path
 		public SearchNode cameFrom; //to rebuild the path if solution is found
 
-
 		//self-explanatory
 		public ArrayList<City> visited = new ArrayList<City>();
 		public ArrayList<City> open_cities = new ArrayList<City>();
@@ -248,7 +295,6 @@ public class TSP {
 		public SearchNode(City n, ArrayList<City> open_cities) {
 			this.city = n;
 
-			//this is pretty much the sucessor function
 			this.open_cities.addAll(open_cities);
 		}
 
@@ -283,6 +329,12 @@ public class TSP {
 			distance = getCost(c1, c2);
 		}
 
+	}
+	
+	public static class SearchNodeTracker{
+		
+		public int searchNodes = 0;
+		
 	}
 
 }
