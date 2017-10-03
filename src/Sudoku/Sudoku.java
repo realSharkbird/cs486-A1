@@ -5,7 +5,9 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Stack;
 import java.util.TreeSet;
 
 public class Sudoku {
@@ -18,8 +20,8 @@ public class Sudoku {
 
 		int startFolder = 1;
 		int startInstance = 1;
-		int endFolder = 72;
-		int endInstance = 11;
+		int endFolder = 2;
+		int endInstance = 2;
 
 		for(int folder = startFolder; folder < endFolder; folder++) {
 			for(int instance = startInstance; instance < endInstance; instance++) {
@@ -109,35 +111,63 @@ public class Sudoku {
 	}
 
 	public static boolean VersionA(int[][] grid, int[][] closed, Agent a, String version) {
-		
-		while(a.r < grid.length) {
-			while(a.c < grid[a.r].length) {
 
-				//find next empty position (in orderly fashion)
-				if(closed[a.r][a.c] == -1) {
-					a.c ++;
-					continue;
-				}
+		Stack<SearchCell> order = new Stack<SearchCell>();
+		Stack<SearchCell> visited = new Stack<SearchCell>();
 
-				//choose next possible number from constrained list
-				if(nextValueA(grid, a, version) == 0) {
-					//if no number exists, backtrack
-					if(!backtrackA(closed, grid, a)) {
-						//No solution found
-						return false;
-					}
+		//configure ordering
+		for(int i = 8; i >= 0; i--) {
+			for(int j = 8; j >= 0; j--) {
+				SearchCell sc = new SearchCell(i, j);
+				order.push(sc);
+			}
+		}
+		/*order.sort(new Comparator<SearchCell>() {
 
-				}else {
-					a.c ++;
-				}
+			@Override
+			public int compare(SearchCell s1, SearchCell s2) {
+				
+				return 0;
+			}
+			
+		});*/
 
-				if(a.var_assign > 10000) {
-					return false;
-				}
+		while(!order.isEmpty()) {
+			
+			SearchCell sc = order.pop();
+			visited.push(sc);
+			a.r = sc.r;
+			a.c = sc.c;
+
+			System.out.println("r: " + a.r + " | c:" + a.c);
+
+			//find next empty position
+			if(closed[a.r][a.c] == -1) {
+				continue;
 			}
 
-			a.r ++; a.c = 0;
+			//choose next possible number from constrained list
+			if(nextValueA(grid, a, version) == 0) {
+				//if no number exists, backtrack
+				if(!backtrackA(closed, grid, a, order, visited)) {
+					//No solution found
+					return false;
+				}
+
+			}
+			
+			for(int i = 0; i < grid.length; i++) {
+				for(int k = 0; k < grid[i].length; k++) {
+					System.out.print(grid[i][k] + " ");
+				}
+				System.out.println("");
+			}
+
+			if(a.var_assign > 10000) {
+				return false;
+			}
 		}
+
 
 		return true;
 
@@ -147,7 +177,7 @@ public class Sudoku {
 
 		int r = a.r; int c = a.c;
 		boolean retVal = true;
-		
+
 		//check if any of the updated cells have no more moves left
 		//check row
 		for(int i = 0; i < 9; i++) {
@@ -180,7 +210,7 @@ public class Sudoku {
 			}
 
 		}
-		
+
 		return retVal;
 	}
 
@@ -222,7 +252,7 @@ public class Sudoku {
 				return i;
 
 			}
-		return 0;
+	return 0;
 	}
 
 	//generates the next possible value for a cell given the set constraints
@@ -238,37 +268,48 @@ public class Sudoku {
 		do {
 			nextValue = checkConstraints(grid, r, c, currentValue);
 			currentValue = nextValue;
+			System.out.println("NEXT VAL: " + nextValue);
 		}while(nextValue != 0 && version.equals("b") && !forwardCheck(grid, a));
-		
+
 		if(originalValue != nextValue)
 			a.var_assign++;
-		
+
 		grid[r][c] = nextValue;
 		return nextValue;
 	}
 
-	public static boolean backtrackA(int[][] closed, int[][] grid, Agent a) {
-		stepback(a); //step back from current cell
+	public static boolean backtrackA(int[][] closed, int[][] grid, Agent a, Stack<SearchCell> order, Stack<SearchCell> visited) {
 
-		while(a.r >= 0) {
-			while(a.c >= 0) {
+		System.out.println("STEPPING BACK");
+		
+		stepback(order, visited); //step back from current cell
+		
+		while(!order.isEmpty()) {
+			
+			SearchCell sc = order.pop();
+			visited.push(sc);
+			a.r = sc.r;
+			a.c = sc.c;
+			int r = a.r; int c = a.c;
+			
+			System.out.println("2nd time r: " + r + " | c: " + c);
 
-				int r = a.r; int c = a.c;
 
-				if(closed[r][c] == -1) {
-					stepback(a); //cell is closed, keep going back
-					break;
-				}
-				if(grid[r][c] == 9) {
-					resetCell(grid, a);
-					stepback(a); //cell has no more options, keep going back
-					break;
-				}
-
-				//an empty cell is found
-				return true;
-
+			if(closed[r][c] == -1) {
+				stepback(order, visited); //cell is closed, keep going back
+				continue;
 			}
+			if(grid[r][c] == 9) {
+				resetCell(grid, a);
+				stepback(order, visited); //cell has no more options, keep going back
+				continue;
+			}
+
+			System.out.println("tru");
+
+			//an empty cell is found
+			stepback(order, visited);
+			return true;
 		}
 
 		return false;
@@ -280,11 +321,17 @@ public class Sudoku {
 		a.var_assign++;
 	}
 
-	public static void stepback(Agent a) {
-		a.c--;
-		if(a.c < 0) {
-			a.r --;
-			a.c = 8;
+	public static void stepback(Stack<SearchCell> order, Stack<SearchCell> visited) {
+		SearchCell sc = visited.pop();
+		order.push(sc);
+	}
+
+	public static class SearchCell {
+		int r, c;
+		public SearchCell(int r, int c) {
+			// TODO Auto-generated constructor stub
+			this.r = r;
+			this.c = c;
 		}
 	}
 
@@ -302,7 +349,7 @@ public class Sudoku {
 			this.r = r;
 			this.c = c;
 		}
-		
+
 	}
 
 }
