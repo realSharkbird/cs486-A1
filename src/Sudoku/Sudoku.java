@@ -18,8 +18,8 @@ public class Sudoku {
 
 		int startFolder = 1;
 		int startInstance = 1;
-		int endFolder = 2;
-		int endInstance = 2;
+		int endFolder = 72;
+		int endInstance = 11;
 
 		for(int folder = startFolder; folder < endFolder; folder++) {
 			for(int instance = startInstance; instance < endInstance; instance++) {
@@ -61,7 +61,7 @@ public class Sudoku {
 				}*/
 
 				Agent a = new Agent();
-				if(!VersionB(grid, closed, a))
+				if(!VersionA(grid, closed, a, "b"))
 					System.out.println("Error. There were likely more than 10,000 variable assignments.");
 
 				//print grid here
@@ -108,8 +108,8 @@ public class Sudoku {
 
 	}
 
-	public static boolean VersionA(int[][] grid, int[][] closed, Agent a) {
-
+	public static boolean VersionA(int[][] grid, int[][] closed, Agent a, String version) {
+		
 		while(a.r < grid.length) {
 			while(a.c < grid[a.r].length) {
 
@@ -120,18 +120,19 @@ public class Sudoku {
 				}
 
 				//choose next possible number from constrained list
-				if(nextValueA(grid, a) == 0) {
+				if(nextValueA(grid, a, version) == 0) {
 					//if no number exists, backtrack
 					if(!backtrackA(closed, grid, a)) {
 						//No solution found
 						return false;
 					}
+
 				}else {
 					a.c ++;
 				}
 
 				if(a.var_assign > 10000) {
-					//return false;
+					return false;
 				}
 			}
 
@@ -142,60 +143,53 @@ public class Sudoku {
 
 	}
 
+	private static boolean forwardCheck(int[][] grid, Agent a) {
 
-	public static boolean VersionB(int[][] grid, int[][] closed, Agent a) {
-
-		int[][][] forwardCheck = new int[9][9][9];
-		for(int i = 0; i < forwardCheck.length; i++) {
-			for(int k = 0; k < forwardCheck[i].length; k++) {
-				for(int j = 0; j < forwardCheck[i][k].length; j++) {
-					forwardCheck[i][k][j] = 0;
+		int r = a.r; int c = a.c;
+		boolean retVal = true;
+		
+		//check if any of the updated cells have no more moves left
+		//check row
+		for(int i = 0; i < 9; i++) {
+			if(grid[i][c] == 0) {
+				if(checkConstraints(grid, i, c, 0) == 0) {
+					retVal = false;
 				}
 			}
 		}
 
-		while(a.r < grid.length) {
-			while(a.c < grid[a.r].length) {
-
-				//find next empty position (in orderly fashion)
-				if(closed[a.r][a.c] == -1) {
-					a.c ++;
-					continue;
+		//check column
+		for(int i = 0; i < 9; i++) {
+			if(grid[r][i] == 0) {
+				if(checkConstraints(grid, r, i, 0) == 0) {
+					retVal = false;
 				}
+			}
+		}
 
-				//choose next possible number from constrained list
-				if(nextValueB(forwardCheck, grid, a) == 0) {
-					//if no solution exists, backtrack
-					if(!backtrackB(forwardCheck, closed, grid, a)) {
-						//No solution found
-						return false;
+		//check block
+		int sR = (int) Math.floor(r/3.0);
+		int sC = (int) Math.floor(c/3.0);
+		for(int k = sR * 3; k < (sR + 1) * 3; k++) {
+			for(int j = sC * 3; j < (sC + 1) * 3; j++) {
+				if(grid[k][j] == 0) {
+					if(checkConstraints(grid, k, j, 0) == 0) {
+						retVal = false;
 					}
-				}else {
-					a.c ++;
-				}
-
-				if(a.var_assign > 10000) {
-					//return false;
 				}
 			}
 
-			a.r ++; a.c = 0;
 		}
-
-		return true;
+		
+		return retVal;
 	}
 
-	//generates the next possible value for a cell given the set constraints
-	//if no value is found, return 0
-	public static int nextValueA(int[][] grid, Agent a) {
 
-		int r = a.r;
-		int c = a.c;
-		int currentValue = grid[r][c];
-		int nextValue = 0;
-
+	//returns the next value a cell can take. 
+	//if no moves are available, returns 0.
+	public static int checkConstraints(int[][] grid, int r, int c, int startValue) {
 		constraintCheck:
-			for(int i = currentValue + 1; i <= 9; i++) {
+			for(int i = startValue + 1; i <= 9; i++) {
 				//check if this value is possible
 
 				//constraint 1: check horizontal cells
@@ -225,127 +219,35 @@ public class Sudoku {
 				}
 
 				//all constraints passed. This value is acceptable atm.
-				nextValue = i;
-				break;
+				return i;
 
 			}
+		return 0;
+	}
 
-		a.var_assign++;
+	//generates the next possible value for a cell given the set constraints
+	//if no value is found, return 0
+	public static int nextValueA(int[][] grid, Agent a, String version) {
+
+		int r = a.r;
+		int c = a.c;
+		int currentValue = grid[r][c];
+		int originalValue = currentValue;
+		int nextValue = 0;
+
+		do {
+			nextValue = checkConstraints(grid, r, c, currentValue);
+			currentValue = nextValue;
+		}while(nextValue != 0 && version.equals("b") && !forwardCheck(grid, a));
+		
+		if(originalValue != nextValue)
+			a.var_assign++;
+		
 		grid[r][c] = nextValue;
 		return nextValue;
 	}
 
 	public static boolean backtrackA(int[][] closed, int[][] grid, Agent a) {
-		return backtrackB(null, closed, grid, a);
-	}
-
-	public static void resetCell(int[][][] forwardCheck, int[][] grid, Agent a) {
-		int r = a.r; int c = a.c;
-		if(forwardCheck != null) {
-			forwardUpdate(forwardCheck, grid, r, c, -1);
-		}
-		grid[r][c] = 0;
-		a.var_assign++;
-	}
-
-	public static void stepback(Agent a) {
-		a.c--;
-		if(a.c < 0) {
-			a.r --;
-			a.c = 8;
-		}
-	}
-
-	public static int nextValueB(int[][][] forwardCheck, int[][] grid, Agent a) {
-
-		int r = a.r;
-		int c = a.c;
-		int currentValue = grid[r][c];
-		int nextValue = 0;
-
-		for(int j = currentValue; j < forwardCheck[r][c].length; j++) {
-			int valid = forwardCheck[r][c][j];
-			if(valid == 0) {
-				nextValue = j + 1;
-				grid[r][c] = nextValue;
-				if(!forwardUpdate(forwardCheck, grid, r, c, 1)) {
-					nextValue = 0;
-					grid[r][c] = nextValue;
-					forwardUpdate(forwardCheck, grid, r, c, -1);
-					a.var_assign++;
-					return nextValue;
-				}
-				break;
-			}
-		}
-
-		grid[r][c] = nextValue;
-		a.var_assign++;
-		return nextValue;
-
-	}
-
-	public static boolean forwardUpdate(int[][][] forwardCheck, int[][] grid, int r, int c, int increment){
-		int var = grid[r][c] - 1;
-
-		if(var < 0) return false;
-
-		//check row
-		for(int i = 0; i < 9; i++) {
-			forwardCheck[i][c][var] += increment;
-		}
-
-		//check column
-		for(int i = 0; i < 9; i++) {
-			forwardCheck[r][i][var] += increment;
-		}
-
-		//check block
-		int sR = (int) Math.floor(r/3.0);
-		int sC = (int) Math.floor(c/3.0);
-		for(int k = sR * 3; k < (sR + 1) * 3; k++) {
-			for(int j = sC * 3; j < (sC + 1) * 3; j++) {
-				forwardCheck[k][j][var] += increment;
-			}
-		}
-
-		boolean retVal = true;
-		
-		//check if any of the updated cells have no more moves left
-		//check row
-		for(int i = 0; i < 9; i++) {
-			retVal = retVal && checkRemainingMoves(grid, forwardCheck, i, c);
-		}
-
-		//check column
-		for(int i = 0; i < 9; i++) {
-			retVal = retVal && checkRemainingMoves(grid, forwardCheck, r, i);
-		}
-
-		//check block
-		for(int k = sR * 3; k < (sR + 1) * 3; k++) {
-			for(int j = sC * 3; j < (sC + 1) * 3; j++) {
-				retVal = retVal && checkRemainingMoves(grid, forwardCheck, k, j);
-			}
-		}
-
-		return retVal;
-	}
-
-	public static boolean checkRemainingMoves(int[][] grid, int[][][] forwardCheck, int r, int c) {
-
-		if(grid[r][c] != 0)
-			return true;
-
-		for(int i = 0; i < forwardCheck[r][c].length; i++) {
-			if(forwardCheck[r][c][i] <= 0) { //there is a remaining move for this cell
-				return true;
-			}
-		}
-		return false;
-	}
-
-	public static boolean backtrackB(int[][][] forwardCheck, int[][] closed, int[][] grid, Agent a) {
 		stepback(a); //step back from current cell
 
 		while(a.r >= 0) {
@@ -358,7 +260,7 @@ public class Sudoku {
 					break;
 				}
 				if(grid[r][c] == 9) {
-					resetCell(forwardCheck, grid, a);
+					resetCell(grid, a);
 					stepback(a); //cell has no more options, keep going back
 					break;
 				}
@@ -372,6 +274,20 @@ public class Sudoku {
 		return false;
 	}
 
+	public static void resetCell(int[][] grid, Agent a) {
+		int r = a.r; int c = a.c;
+		grid[r][c] = 0;
+		a.var_assign++;
+	}
+
+	public static void stepback(Agent a) {
+		a.c--;
+		if(a.c < 0) {
+			a.r --;
+			a.c = 8;
+		}
+	}
+
 	//Represents the cell you are currently checking
 	public static class Agent {
 		public Integer r, c;
@@ -382,6 +298,11 @@ public class Sudoku {
 			c = 0;
 		}
 
+		public Agent(int r, int c) {
+			this.r = r;
+			this.c = c;
+		}
+		
 	}
 
 }
