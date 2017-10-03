@@ -18,8 +18,8 @@ public class Sudoku {
 
 		int startFolder = 1;
 		int startInstance = 1;
-		int endFolder = 72;
-		int endInstance = 11;
+		int endFolder = 2;
+		int endInstance = 2;
 
 		for(int folder = startFolder; folder < endFolder; folder++) {
 			for(int instance = startInstance; instance < endInstance; instance++) {
@@ -28,7 +28,7 @@ public class Sudoku {
 				int[][] grid = new int[9][9];
 				int[][] closed = new int[9][9];
 				int numInitial = 0;
-				
+
 				//read grid here
 				BufferedReader reader = new BufferedReader(new FileReader(new File("C:\\Users\\Jayson\\workspace\\cs486_A1\\src\\problems\\" + folder + "\\" + instance + ".sd")));
 
@@ -48,9 +48,9 @@ public class Sudoku {
 							numInitial++;
 					}
 				}
-				
+
 				plot_x.add(numInitial);
-				
+
 				//print grid here
 				/*System.out.println("Num of initial values: " + numInitial);
 				for(int i = 0; i < grid.length; i++) {
@@ -61,19 +61,19 @@ public class Sudoku {
 				}*/
 
 				Agent a = new Agent();
-				if(!VersionA(grid, closed, a))
+				if(!VersionB(grid, closed, a))
 					System.out.println("Error. There were likely more than 10,000 variable assignments.");
 
 				//print grid here
-				/*System.out.println("");
+				System.out.println("");
 				System.out.println("SOLUTION: ");
 				for(int i = 0; i < grid.length; i++) {
 					for(int k = 0; k < grid[i].length; k++) {
 						System.out.print(grid[i][k] + " ");
 					}
 					System.out.println("");
-				}*/
-				
+				}
+
 				Integer currentSum, currentNum = plot_y_num.get(numInitial);
 				if((currentSum = plot_y_sum.get(numInitial)) == null) {
 					currentSum = 0;
@@ -81,21 +81,31 @@ public class Sudoku {
 				}
 				plot_y_sum.put(numInitial, currentSum + a.var_assign);
 				plot_y_num.put(numInitial, currentNum + 1);
-				
+
 				System.out.println("variable assignments: " + a.var_assign);
 				System.out.println("");
 
 			}
 		}
-		
-		while(!plot_x.isEmpty()) {
-			Integer numVarAssign = plot_x.first();
-			plot_x.remove(numVarAssign);
-			double avg = plot_y_sum.get(numVarAssign) / (double)plot_y_num.get(numVarAssign);
-			System.out.println("Num of initial values: " + numVarAssign);
-			System.out.println("Average number of var assignments: " + avg);
+
+		System.out.println("Plot data");
+
+		TreeSet<Integer> plot_x_temp = new TreeSet<Integer>(plot_x);
+
+		while(!plot_x_temp.isEmpty()) {
+			Integer plotNumInitial = plot_x_temp.first();
+			plot_x_temp.remove(plotNumInitial);
+			System.out.println(plotNumInitial);
 
 		}
+		while(!plot_x.isEmpty()) {
+			Integer plotNumInitial = plot_x.first();
+			plot_x.remove(plotNumInitial);
+			double avg = plot_y_sum.get(plotNumInitial) / (double)plot_y_num.get(plotNumInitial);
+			System.out.println(avg);
+
+		}
+
 	}
 
 	public static boolean VersionA(int[][] grid, int[][] closed, Agent a) {
@@ -121,7 +131,7 @@ public class Sudoku {
 				}
 
 				if(a.var_assign > 10000) {
-					return false;
+					//return false;
 				}
 			}
 
@@ -144,12 +154,6 @@ public class Sudoku {
 			}
 		}
 
-		for(int r = 0; r < 9; r++) {
-			for(int c = 0; c < 9; c++) {
-				forwardCheck(forwardCheck, grid, r, c, 1);
-			}
-		}
-
 		while(a.r < grid.length) {
 			while(a.c < grid[a.r].length) {
 
@@ -161,7 +165,7 @@ public class Sudoku {
 
 				//choose next possible number from constrained list
 				if(nextValueB(forwardCheck, grid, a) == 0) {
-					//if no number exists, backtrack
+					//if no solution exists, backtrack
 					if(!backtrackB(forwardCheck, closed, grid, a)) {
 						//No solution found
 						return false;
@@ -171,7 +175,7 @@ public class Sudoku {
 				}
 
 				if(a.var_assign > 10000) {
-					return false;
+					//return false;
 				}
 			}
 
@@ -193,7 +197,7 @@ public class Sudoku {
 		constraintCheck:
 			for(int i = currentValue + 1; i <= 9; i++) {
 				//check if this value is possible
-				
+
 				//constraint 1: check horizontal cells
 				for(int k = 0; k < grid[r].length; k++) {
 					if(grid[r][k] == i) {
@@ -221,12 +225,12 @@ public class Sudoku {
 				}
 
 				//all constraints passed. This value is acceptable atm.
-				a.var_assign ++;
 				nextValue = i;
 				break;
 
 			}
 
+		a.var_assign++;
 		grid[r][c] = nextValue;
 		return nextValue;
 	}
@@ -238,7 +242,7 @@ public class Sudoku {
 	public static void resetCell(int[][][] forwardCheck, int[][] grid, Agent a) {
 		int r = a.r; int c = a.c;
 		if(forwardCheck != null) {
-			forwardCheck(forwardCheck, grid, r, c, -1);
+			forwardUpdate(forwardCheck, grid, r, c, -1);
 		}
 		grid[r][c] = 0;
 		a.var_assign++;
@@ -259,15 +263,18 @@ public class Sudoku {
 		int currentValue = grid[r][c];
 		int nextValue = 0;
 
-		forwardCheck(forwardCheck, grid, r, c, -1);
-
 		for(int j = currentValue; j < forwardCheck[r][c].length; j++) {
 			int valid = forwardCheck[r][c][j];
 			if(valid == 0) {
 				nextValue = j + 1;
 				grid[r][c] = nextValue;
-				a.var_assign++;
-				forwardCheck(forwardCheck, grid, r, c, 1);
+				if(!forwardUpdate(forwardCheck, grid, r, c, 1)) {
+					nextValue = 0;
+					grid[r][c] = nextValue;
+					forwardUpdate(forwardCheck, grid, r, c, -1);
+					a.var_assign++;
+					return nextValue;
+				}
 				break;
 			}
 		}
@@ -278,10 +285,10 @@ public class Sudoku {
 
 	}
 
-	public static void forwardCheck(int[][][] forwardCheck, int[][] grid, int r, int c, int increment){
+	public static boolean forwardUpdate(int[][][] forwardCheck, int[][] grid, int r, int c, int increment){
 		int var = grid[r][c] - 1;
 
-		if(var < 0) return;
+		if(var < 0) return false;
 
 		//check row
 		for(int i = 0; i < 9; i++) {
@@ -301,6 +308,41 @@ public class Sudoku {
 				forwardCheck[k][j][var] += increment;
 			}
 		}
+
+		boolean retVal = true;
+		
+		//check if any of the updated cells have no more moves left
+		//check row
+		for(int i = 0; i < 9; i++) {
+			retVal = retVal && checkRemainingMoves(grid, forwardCheck, i, c);
+		}
+
+		//check column
+		for(int i = 0; i < 9; i++) {
+			retVal = retVal && checkRemainingMoves(grid, forwardCheck, r, i);
+		}
+
+		//check block
+		for(int k = sR * 3; k < (sR + 1) * 3; k++) {
+			for(int j = sC * 3; j < (sC + 1) * 3; j++) {
+				retVal = retVal && checkRemainingMoves(grid, forwardCheck, k, j);
+			}
+		}
+
+		return retVal;
+	}
+
+	public static boolean checkRemainingMoves(int[][] grid, int[][][] forwardCheck, int r, int c) {
+
+		if(grid[r][c] != 0)
+			return true;
+
+		for(int i = 0; i < forwardCheck[r][c].length; i++) {
+			if(forwardCheck[r][c][i] <= 0) { //there is a remaining move for this cell
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public static boolean backtrackB(int[][][] forwardCheck, int[][] closed, int[][] grid, Agent a) {
@@ -339,7 +381,7 @@ public class Sudoku {
 			r = 0;
 			c = 0;
 		}
-		
+
 	}
 
 }
