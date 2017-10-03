@@ -12,7 +12,7 @@ public class TSP {
 
 	public static void main(String[] args) throws NumberFormatException, IOException{
 
-		//statistics for plotting
+		//statistics for plotting. Homework specific.
 		TreeSet<Integer> plot_x = new TreeSet<Integer>(); 
 		HashMap<Integer, Integer> plot_y_sum = new HashMap<Integer, Integer>(); 
 		HashMap<Integer, Integer> plot_y_num = new HashMap<Integer, Integer>(); 
@@ -22,13 +22,8 @@ public class TSP {
 		int endFolder = 12;
 		int endInstance = 11;
 
-		outer:
 		for(int folder = startFolder; folder < endFolder; folder++) {
 			for(int instance = startInstance; instance < endInstance; instance++) {
-
-				if(folder == 11 && instance == 10) {
-					break outer;
-				}
 				
 				int numCities;
 				ArrayList<City> cities = new ArrayList<City>();
@@ -57,15 +52,12 @@ public class TSP {
 				if((result = SolveTSP(cities, snt)) == null) {
 					System.out.println("error");
 				}else {
+					
 					//print results here
-
 					System.out.println("SOLUTION: ");
 					SearchNode resultBackup = result;
 					while(result != null) {
 						System.out.print(result.city.getLetter() + " ");
-						if(result.cameFrom != null) {
-							//System.out.println("Edge cost: " + getCost(result.city, result.cameFrom.city));
-						}
 						result = result.cameFrom;
 					}
 					System.out.println();
@@ -106,6 +98,7 @@ public class TSP {
 		City start = cities.get(0);
 
 		//represents all the current paths being visited in the search tree
+		//sorted by the fringe score. Shortest paths are explored first.
 		TreeSet<SearchNode> open = new TreeSet<SearchNode>(new Comparator<SearchNode>() {
 
 			@Override
@@ -135,6 +128,7 @@ public class TSP {
 			open.remove(node);
 			node.visit(city);
 
+			//A solution is found here
 			if(node.visited.size() == cities.size()) {
 
 				if(snt != null)
@@ -144,6 +138,7 @@ public class TSP {
 
 			}
 
+			//No solution found. Investigate Neighbours (unvisited cities) of current city.
 			for(City neighbour: node.open_cities) {
 
 				searchNodes++;
@@ -160,8 +155,7 @@ public class TSP {
 				child.gScore = tentative_gScore;
 				
 				if(!(child.city.equals(start) && child.visited.size() == cities.size() - 1)) {
-					//we have to include the final city in the heuristic
-					//so temporarily add it
+					//we have to include the final city in the heuristic, so temporarily add it
 					child.open_cities.add(start);
 					child.fScore = child.gScore + getHeuristic(child.open_cities);
 					child.open_cities.remove(start);
@@ -180,25 +174,23 @@ public class TSP {
 		return null;
 	}
 	
-	//heuristic function
-	//which generates the min span tree
+	//heuristic function, which generates the min span tree
+	//similar to Kruskals algorithm
 	public static double getHeuristic(ArrayList<City> open_cities) {
 
-		//for problem 1d.
-		if(true)
-			return 0;
+		//to get date for problem 1d.
+		/*if(true)
+			return 0;*/
 		
 		ArrayList<ArrayList<City>> forest = new ArrayList<ArrayList<City>>(); //keep track of disjointed nodes
-		ArrayList<Edge> MST = new ArrayList<Edge>();
+		ArrayList<Edge> MST = new ArrayList<Edge>(); //keeps track of edges in min spanning tree
 
-		//kruskals algorithm
-		//create list of edges
+		//create list of edges sorted by length
 		TreeSet<Edge> edges = new TreeSet<Edge>(new Comparator<Edge>() {
 
 			@Override
 			public int compare(Edge e1, Edge e2) {
 
-				//keep list sorted by length
 				double dist1 = getCost(e1.c1, e1.c2);
 				double dist2 = getCost(e2.c1, e2.c2);
 
@@ -210,6 +202,7 @@ public class TSP {
 
 		});
 
+		//add edges to sorted list
 		for(int i = 0; i < open_cities.size(); i++) {
 			for(int k = i + 1; k < open_cities.size(); k++) {
 				Edge e = new Edge(open_cities.get(i), open_cities.get(k));
@@ -217,40 +210,38 @@ public class TSP {
 			}
 		}
 
-
 		while(!edges.isEmpty()) {
 
 			Edge shortest = edges.first(); 	//pick the shortest edge to check first
 			edges.remove(shortest);
 
-			int merge = -1;
+			int merge_id = -1;
 
 			for(int i = 0; i < forest.size(); i++) {
 				ArrayList<City> tree = forest.get(i);
 
 				//there is a cycle, don't add this edge to the MST
 				if(tree.contains(shortest.c1) && tree.contains(shortest.c2)) {
-					merge = -2;
+					merge_id = -2;
 					break;
 				}
 
-				City merger = null;
+				City prev_city = null;
 				if(tree.contains(shortest.c1)) {
-					merger = shortest.c1;
+					prev_city = shortest.c1;
 					tree.add(shortest.c2);
 				}
 
 				if(tree.contains(shortest.c2)) {				
-					merger = shortest.c2;
+					prev_city = shortest.c2;
 					tree.add(shortest.c1);
 				}
 
-				//
-				if(merger != null) {
-					if(merge != -1) {
+				if(prev_city != null) {
+					if(merge_id != -1) {
 
 						//merge 2 disjointed sets together
-						ArrayList<City> previous = forest.get(merge);
+						ArrayList<City> previous = forest.get(merge_id);
 						previous.addAll(tree);
 						previous.remove(shortest.c1);
 						previous.remove(shortest.c2);
@@ -260,14 +251,14 @@ public class TSP {
 					}else{
 
 						MST.add(shortest);
-						merge = i;
+						merge_id = i;
 					}
 				}
 
 			}
 
 			//if edge does not connect to any current edges, create a new disjointed set
-			if(merge == -1) {
+			if(merge_id == -1) {
 				ArrayList<City> tree = new ArrayList<City>();
 				tree.add(shortest.c1);
 				tree.add(shortest.c2);
@@ -284,7 +275,7 @@ public class TSP {
 		return heuristic;
 	}
 
-	//real cost function
+	//the cost function. This is the Euclidean distance between 2 cities.
 	public static double getCost(City n1, City n2) {
 		double dx = n1.getX() - n2.getX();
 		double dy = n1.getY() - n2.getY();
@@ -295,21 +286,19 @@ public class TSP {
 
 		public City city; //current node being searched
 		public double fScore = Double.POSITIVE_INFINITY, gScore = Double.POSITIVE_INFINITY; //f and g score of this path
-		public SearchNode cameFrom; //to rebuild the path if solution is found
+		public SearchNode cameFrom; //This is here to rebuild the path if a solution is found
 
-		//self-explanatory
+		//list of visited and open cities
 		public ArrayList<City> visited = new ArrayList<City>();
 		public ArrayList<City> open_cities = new ArrayList<City>();
 
 		public SearchNode(City n, ArrayList<City> open_cities) {
 			this.city = n;
-
 			this.open_cities.addAll(open_cities);
 		}
 
 		public SearchNode(City n, SearchNode searchNode) {
 			this.city = n;
-
 			this.open_cities.addAll(searchNode.open_cities);
 			this.visited.addAll(searchNode.visited);
 		}
@@ -326,6 +315,8 @@ public class TSP {
 
 	}
 
+	//Keeps track of 2 unique cities and their cost
+	//Needed to calculate the heuristic
 	public static class Edge {
 
 		public City c1, c2;
@@ -340,6 +331,7 @@ public class TSP {
 
 	}
 	
+	//Statistics. Keeps track of num of search nodes created.
 	public static class SearchNodeTracker{
 		
 		public int searchNodes = 0;

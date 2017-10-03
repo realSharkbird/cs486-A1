@@ -14,19 +14,19 @@ public class Sudoku {
 
 	public static void main(String[] args) throws IOException {
 
+		//variables for plot purposes. Homework specific.
 		TreeSet<Integer> plot_x = new TreeSet<Integer>(); //keeps all the num of initial values in sorted order
 		HashMap<Integer, Integer> plot_y_sum = new HashMap<Integer, Integer>(); //keeps the overall sum 
 		HashMap<Integer, Integer> plot_y_num = new HashMap<Integer, Integer>(); //keeps the number of times that num of init values occurred
 
 		int startFolder = 1;
 		int startInstance = 1;
-		int endFolder = 2;
-		int endInstance = 2;
+		int endFolder = 72;
+		int endInstance = 11;
 
 		for(int folder = startFolder; folder < endFolder; folder++) {
 			for(int instance = startInstance; instance < endInstance; instance++) {
 
-				System.out.println("folder: " + folder + " | instance: " + instance);
 				int[][] grid = new int[9][9];
 				int[][] closed = new int[9][9];
 				int numInitial = 0;
@@ -44,6 +44,7 @@ public class Sudoku {
 
 				reader.close();
 
+				//get num of initial values
 				for(int i = 0; i < closed.length; i++) {
 					for(int k = 0; k < closed.length; k++) {
 						if(closed[i][k] == -1)
@@ -53,27 +54,19 @@ public class Sudoku {
 
 				plot_x.add(numInitial);
 
-				//print grid here
-				/*System.out.println("Num of initial values: " + numInitial);
-				for(int i = 0; i < grid.length; i++) {
-					for(int k = 0; k < grid[i].length; k++) {
-						System.out.print(grid[i][k] + " ");
-					}
-					System.out.println("");
-				}*/
-
+				System.out.println("folder: " + folder + " , instance: " + instance);
 				Agent a = new Agent();
-				if(!VersionA(grid, closed, a, "b"))
-					System.out.println("Error. There were likely more than 10,000 variable assignments.");
-
-				//print grid here
-				System.out.println("");
-				System.out.println("SOLUTION: ");
-				for(int i = 0; i < grid.length; i++) {
-					for(int k = 0; k < grid[i].length; k++) {
-						System.out.print(grid[i][k] + " ");
+				if(!SolveSudoku(grid, closed, a, "b")) {
+					System.out.println("Solve Sudoku stopped due to error.");
+				}else {
+					//print grid solution here
+					System.out.println("SOLUTION: ");
+					for(int i = 0; i < grid.length; i++) {
+						for(int k = 0; k < grid[i].length; k++) {
+							System.out.print(grid[i][k] + " ");
+						}
+						System.out.println("");
 					}
-					System.out.println("");
 				}
 
 				Integer currentSum, currentNum = plot_y_num.get(numInitial);
@@ -92,78 +85,74 @@ public class Sudoku {
 
 		System.out.println("Plot data");
 
-		TreeSet<Integer> plot_x_temp = new TreeSet<Integer>(plot_x);
-
-		while(!plot_x_temp.isEmpty()) {
-			Integer plotNumInitial = plot_x_temp.first();
-			plot_x_temp.remove(plotNumInitial);
-			System.out.println(plotNumInitial);
-
-		}
+		//print plot data here
 		while(!plot_x.isEmpty()) {
 			Integer plotNumInitial = plot_x.first();
 			plot_x.remove(plotNumInitial);
 			double avg = plot_y_sum.get(plotNumInitial) / (double)plot_y_num.get(plotNumInitial);
-			System.out.println(avg);
-
+			System.out.println(plotNumInitial + " " + avg);
 		}
 
 	}
 
-	public static boolean VersionA(int[][] grid, int[][] closed, Agent a, String version) {
+	public static boolean SolveSudoku(int[][] grid, int[][] closed, Agent a, String version) {
 
-		Stack<SearchCell> order = new Stack<SearchCell>();
-		Stack<SearchCell> visited = new Stack<SearchCell>();
+		Stack<SearchNode> order = new Stack<SearchNode>(); //keeps order of cells to be visited
+		Stack<SearchNode> visited = new Stack<SearchNode>(); //keep history of cells searched for backtracking purposes
 
-		//configure ordering
+		//configure cells to be searched
 		for(int i = 8; i >= 0; i--) {
 			for(int j = 8; j >= 0; j--) {
-				SearchCell sc = new SearchCell(i, j);
+				SearchNode sc = new SearchNode(i, j);
 				order.push(sc);
 			}
 		}
-		/*order.sort(new Comparator<SearchCell>() {
+		
+		//most constrained variable heuristic implemented here
+		if(version.equals("c")) {
+			order.sort(new Comparator<SearchNode>() {
 
-			@Override
-			public int compare(SearchCell s1, SearchCell s2) {
-				
-				return 0;
-			}
-			
-		});*/
+				@Override
+				public int compare(SearchNode s1, SearchNode s2) {
+					
+					int c1 = numMoves(grid, s1.r, s1.c);
+					int c2 = numMoves(grid, s2.r, s2.c);
+					
+					if(c2 < c1) return -1;
+					if(c2 > c1) return 1;
+					
+					return 0;
+				}
+
+			});
+		}
 
 		while(!order.isEmpty()) {
-			
-			SearchCell sc = order.pop();
+
+			SearchNode sc = order.pop();
 			visited.push(sc);
 			a.r = sc.r;
 			a.c = sc.c;
 
-			System.out.println("r: " + a.r + " | c:" + a.c);
-
-			//find next empty position
+			//this cell is an initial value, find next empty position
 			if(closed[a.r][a.c] == -1) {
 				continue;
 			}
 
-			//choose next possible number from constrained list
-			if(nextValueA(grid, a, version) == 0) {
+			//assign domain to current cell and check constraints
+			if(move(grid, a, version) == 0) {
 				//if no number exists, backtrack
-				if(!backtrackA(closed, grid, a, order, visited)) {
+				if(!backtrack(closed, grid, a, order, visited)) {
 					//No solution found
+					System.out.println("err. no soln");
 					return false;
 				}
 
 			}
-			
-			for(int i = 0; i < grid.length; i++) {
-				for(int k = 0; k < grid[i].length; k++) {
-					System.out.print(grid[i][k] + " ");
-				}
-				System.out.println("");
-			}
 
+			//terminate if num of var assignments is greater than 10000
 			if(a.var_assign > 10000) {
+				System.out.println("err. more than 10000 assigns.");
 				return false;
 			}
 		}
@@ -172,17 +161,37 @@ public class Sudoku {
 		return true;
 
 	}
+	
+	//checks the number of available moves a cell has
+	public static int numMoves(int[][] grid, int r, int c) {
 
+		int constraints = 0;
+		int num = 0;
+		for(int i = 7; i >= -1; i--) {
+			int nextNum = nextMove(grid, r, c, i);
+			
+			if(nextNum != num) {
+				num = nextNum;
+				constraints++;
+			}
+			
+		}
+				
+		return constraints;
+	}
+
+	/*	checks all the cells in a row, column and block
+	* 	returns false if no moves are available for any of these cells
+	*/	
 	private static boolean forwardCheck(int[][] grid, Agent a) {
 
 		int r = a.r; int c = a.c;
 		boolean retVal = true;
-
-		//check if any of the updated cells have no more moves left
+		
 		//check row
 		for(int i = 0; i < 9; i++) {
 			if(grid[i][c] == 0) {
-				if(checkConstraints(grid, i, c, 0) == 0) {
+				if(nextMove(grid, i, c, 0) == 0) {
 					retVal = false;
 				}
 			}
@@ -191,7 +200,7 @@ public class Sudoku {
 		//check column
 		for(int i = 0; i < 9; i++) {
 			if(grid[r][i] == 0) {
-				if(checkConstraints(grid, r, i, 0) == 0) {
+				if(nextMove(grid, r, i, 0) == 0) {
 					retVal = false;
 				}
 			}
@@ -203,7 +212,7 @@ public class Sudoku {
 		for(int k = sR * 3; k < (sR + 1) * 3; k++) {
 			for(int j = sC * 3; j < (sC + 1) * 3; j++) {
 				if(grid[k][j] == 0) {
-					if(checkConstraints(grid, k, j, 0) == 0) {
+					if(nextMove(grid, k, j, 0) == 0) {
 						retVal = false;
 					}
 				}
@@ -215,9 +224,10 @@ public class Sudoku {
 	}
 
 
-	//returns the next value a cell can take. 
+	//returns the next move for a cell given the set constraints
 	//if no moves are available, returns 0.
-	public static int checkConstraints(int[][] grid, int r, int c, int startValue) {
+	public static int nextMove(int[][] grid, int r, int c, int startValue) {
+
 		constraintCheck:
 			for(int i = startValue + 1; i <= 9; i++) {
 				//check if this value is possible
@@ -255,9 +265,11 @@ public class Sudoku {
 	return 0;
 	}
 
-	//generates the next possible value for a cell given the set constraints
-	//if no value is found, return 0
-	public static int nextValueA(int[][] grid, Agent a, String version) {
+	
+	/*	generates the next move for a cell filtered by forward checking if enabled
+	*	if no value is found, return 0
+	*/
+	public static int move(int[][] grid, Agent a, String version) {
 
 		int r = a.r;
 		int c = a.c;
@@ -266,34 +278,29 @@ public class Sudoku {
 		int nextValue = 0;
 
 		do {
-			nextValue = checkConstraints(grid, r, c, currentValue);
+			nextValue = nextMove(grid, r, c, currentValue);
 			currentValue = nextValue;
-			System.out.println("NEXT VAL: " + nextValue);
-		}while(nextValue != 0 && version.equals("b") && !forwardCheck(grid, a));
+			grid[r][c] = nextValue;
+		}while(nextValue != 0 && (version.equals("b") || version.equals("c")) && !forwardCheck(grid, a));
 
 		if(originalValue != nextValue)
 			a.var_assign++;
 
-		grid[r][c] = nextValue;
 		return nextValue;
 	}
 
-	public static boolean backtrackA(int[][] closed, int[][] grid, Agent a, Stack<SearchCell> order, Stack<SearchCell> visited) {
+	//backtrack to an available previous cell
+	public static boolean backtrack(int[][] closed, int[][] grid, Agent a, Stack<SearchNode> order, Stack<SearchNode> visited) {
 
-		System.out.println("STEPPING BACK");
-		
-		stepback(order, visited); //step back from current cell
-		
+		stepback(order, visited); //skip the current cell
+
 		while(!order.isEmpty()) {
-			
-			SearchCell sc = order.pop();
+
+			SearchNode sc = order.pop();
 			visited.push(sc);
 			a.r = sc.r;
 			a.c = sc.c;
 			int r = a.r; int c = a.c;
-			
-			System.out.println("2nd time r: " + r + " | c: " + c);
-
 
 			if(closed[r][c] == -1) {
 				stepback(order, visited); //cell is closed, keep going back
@@ -305,10 +312,7 @@ public class Sudoku {
 				continue;
 			}
 
-			System.out.println("tru");
-
-			//an empty cell is found
-			stepback(order, visited);
+			order.push(visited.pop()); //an available cell is found
 			return true;
 		}
 
@@ -321,23 +325,24 @@ public class Sudoku {
 		a.var_assign++;
 	}
 
-	public static void stepback(Stack<SearchCell> order, Stack<SearchCell> visited) {
-		SearchCell sc = visited.pop();
-		order.push(sc);
+	public static void stepback(Stack<SearchNode> order, Stack<SearchNode> visited) {
+		order.push(visited.pop());
+		order.push(visited.pop());
 	}
 
-	public static class SearchCell {
+	//keeps track of the order of cells searched
+	public static class SearchNode {
 		int r, c;
-		public SearchCell(int r, int c) {
+		public SearchNode(int r, int c) {
 			// TODO Auto-generated constructor stub
 			this.r = r;
 			this.c = c;
 		}
 	}
 
-	//Represents the cell you are currently checking
+	//keeps track of current cell searched and num of variable assignments
 	public static class Agent {
-		public Integer r, c;
+		public Integer r = 0, c = 0;
 		public int var_assign = 0;
 
 		public Agent() {
